@@ -1,0 +1,19 @@
+{
+  "appId": "app.pulserush.arcade",
+  "appName": "PulseRush",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#05060a",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#05060a"
+    }
+  }
+}

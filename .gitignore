@@ -1,0 +1,12 @@
+node_modules/
+android/
+.idea/
+.gradle/
+.vercel/
+*.keystore
+*.jks
+key.properties
+store/keystore.pass
+dist/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,26 @@
+{
+  "name": "pulserush",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PulseRush — neon timing arcade with challenge-a-friend viral loop",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "start": "npx --yes serve www -p 4173",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:build": "node scripts/build-aab.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.1.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  }
+}
