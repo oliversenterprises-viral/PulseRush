@@ -1,4 +1,12 @@
 {
+  "rewrites": [
+    { "source": "/", "destination": "/www/index.html" },
+    { "source": "/privacy", "destination": "/www/privacy.html" },
+    { "source": "/manifest.webmanifest", "destination": "/www/manifest.webmanifest" },
+    { "source": "/css/:path*", "destination": "/www/css/:path*" },
+    { "source": "/js/:path*", "destination": "/www/js/:path*" },
+    { "source": "/assets/:path*", "destination": "/www/assets/:path*" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

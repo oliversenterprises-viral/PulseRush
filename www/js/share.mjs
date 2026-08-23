@@ -1,6 +1,6 @@
 import { buildChallengeParams, sanitizeName, shareCopy, utcDateString } from "./engine.mjs";
 
-export const DEFAULT_ORIGIN = "https://pulserush.vercel.app";
+export const DEFAULT_ORIGIN = "https://pulserush-six.vercel.app";
 
 export function publicOrigin() {
   const cfg = window.PULSERUSH_ORIGIN;
@@ -87,7 +87,7 @@ export function drawShareCard(canvas, { score, name, best, streak, beaten, skin 
   ctx.fillText("BEAT THIS SCORE", w / 2, 1170);
   ctx.fillStyle = "#c9d2f0";
   ctx.font = "600 28px Trebuchet MS, sans-serif";
-  ctx.fillText("pulserush.vercel.app", w / 2, 1224);
+  ctx.fillText("pulserush-six.vercel.app", w / 2, 1224);
 }
 
 export async function shareChallenge(payload) {

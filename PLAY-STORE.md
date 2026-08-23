@@ -44,7 +44,7 @@ The web build is the growth engine. Friends do not need Play to be challenged.
 
 1. Play a run
 2. Tap **Challenge a friend**
-3. They open `https://pulserush.vercel.app/?c=SCORE&n=NAME`
+3. They open `https://pulserush-six.vercel.app/?c=SCORE&n=NAME`
 4. They try to beat it and share back
 
 Web first, Play second. Play review does not block the loop.
