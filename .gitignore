@@ -7,6 +7,7 @@ android/
 *.jks
 key.properties
 store/keystore.pass
+*.aab
 dist/
 .DS_Store
 Thumbs.db
