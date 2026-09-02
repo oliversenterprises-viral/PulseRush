@@ -38,6 +38,8 @@ export class PulseRush {
   constructor() {
     this.canvas = $("stage");
     this.ctx = this.canvas.getContext("2d");
+    this.backdrop = $("backdrop");
+    this.bctx = this.backdrop ? this.backdrop.getContext("2d") : null;
     this.synth = new Synth();
     this.ads = new AdBridge();
     this.fx = new FX();
@@ -54,6 +56,11 @@ export class PulseRush {
       x: Math.random(),
       y: Math.random(),
       z: 0.2 + Math.random() * 0.8,
+    }));
+    this.worldStars = Array.from({ length: 140 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      z: 0.15 + Math.random() * 0.85,
     }));
     this._overAnim = 0;
     this._bind();
@@ -253,6 +260,15 @@ export class PulseRush {
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.bctx && this.backdrop) {
+      const vw = Math.max(1, Math.round(window.innerWidth));
+      const vh = Math.max(1, Math.round(window.innerHeight));
+      this.backdrop.width = Math.floor(vw * this.dpr);
+      this.backdrop.height = Math.floor(vh * this.dpr);
+      this.backdrop.style.width = `${vw}px`;
+      this.backdrop.style.height = `${vh}px`;
+      this.bctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
     if (this.pulse) {
       this.pulse.cx = w / 2;
       this.pulse.cy = h * 0.48;
@@ -511,6 +527,7 @@ export class PulseRush {
     ctx.fillRect(0, 0, w, h);
 
     drawStars(ctx, this.stars, w, h, dt);
+    this.drawBackdrop(dt);
 
     if (this.screen === "play" && this.pulse) {
       const p = this.pulse;
@@ -522,6 +539,33 @@ export class PulseRush {
 
     drawVignette(ctx, w, h);
     this.fx.draw(ctx, w, h);
+  }
+
+  drawBackdrop(dt) {
+    if (!this.bctx || !this.backdrop) return;
+    const ctx = this.bctx;
+    const w = this.backdrop.width / this.dpr;
+    const h = this.backdrop.height / this.dpr;
+    ctx.clearRect(0, 0, w, h);
+    drawStars(ctx, this.worldStars, w, h, dt);
+    if (w < 760) return;
+    const t = performance.now() / 1000;
+    const skin = skinById(this.state.skin);
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.translate(w * 0.5, h * 0.46);
+    ctx.strokeStyle = skin.target;
+    ctx.shadowColor = skin.glow;
+    ctx.shadowBlur = 28;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.min(w, h) * 0.42 + Math.sin(t * 0.7) * 10, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = skin.pulse;
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.min(w, h) * 0.56 + Math.cos(t * 0.5) * 12, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
