@@ -194,7 +194,16 @@ export function drawPlayArena(ctx, pulse, skin, fever, now) {
   ring(ctx, target, skin.target, fever ? 7 : 6, skin.glow, null);
   ring(ctx, target, "rgba(255,229,106,0.28)", close ? 16 : 10, null, null);
   ring(ctx, target * 0.9, "rgba(255,255,255,0.2)", 1.4, null, [10, 8]);
-  if (sweet) ring(ctx, target, skin.perfect, 2, skin.perfect, null);
+  if (sweet) {
+    ring(ctx, target, skin.perfect, 2, skin.perfect, null);
+    ctx.fillStyle = skin.perfect;
+    ctx.font = "800 15px Rajdhani, Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.globalAlpha = 0.92;
+    ctx.fillText("NOW", 0, target + 18);
+    ctx.globalAlpha = 1;
+  }
 
   const ghosts = pulse.trail || [];
   for (let i = 0; i < ghosts.length; i++) {
