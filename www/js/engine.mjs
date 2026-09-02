@@ -100,6 +100,19 @@ export function pulseRadius(t, fromR, toR) {
   return fromR + (toR - fromR) * x;
 }
 
+/**
+ * Progress (0..1) when the moving ring crosses the target ring.
+ * Used to schedule the audio cue on the same instant as the visual hit.
+ * Does not change scoring or judge windows.
+ */
+export function hitProgress(fromR, toR, targetR) {
+  const span = toR - fromR;
+  if (!Number.isFinite(span) || Math.abs(span) < 1e-6) return 0.5;
+  if (!Number.isFinite(fromR) || !Number.isFinite(targetR)) return 0.5;
+  const t = (targetR - fromR) / span;
+  return Math.min(0.98, Math.max(0.02, t));
+}
+
 export function clampLives(n) {
   return Math.max(0, Math.min(START_LIVES, n | 0));
 }

@@ -10,6 +10,7 @@ import {
   judge,
   parseChallenge,
   pulseRadius,
+  hitProgress,
   sanitizeName,
   scoreFor,
   shareCopy,
@@ -51,6 +52,12 @@ test("pulseRadius interpolates", () => {
   assert.equal(pulseRadius(0, 10, 20), 10);
   assert.equal(pulseRadius(1, 10, 20), 20);
   assert.equal(pulseRadius(0.5, 10, 20), 15);
+});
+
+test("hitProgress is the overlap instant", () => {
+  assert.equal(hitProgress(0, 100, 50), 0.5);
+  assert.equal(hitProgress(100, 0, 50), 0.5);
+  assert.ok(hitProgress(10, 10, 10) >= 0.02);
 });
 
 test("challenge parse and copy", () => {
