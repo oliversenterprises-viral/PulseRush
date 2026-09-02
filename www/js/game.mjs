@@ -1,4 +1,5 @@
 import {
+  FEVER_AT,
   SKINS,
   START_LIVES,
   applyTap,
@@ -6,6 +7,7 @@ import {
   dailySeed,
   grantContinue,
   judge,
+  hitProgress,
   mulberry32,
   nextPattern,
   parseChallenge,
@@ -20,10 +22,17 @@ import {
 import { buySkin, loadState, recordRun, saveState, touchStreak } from "./storage.mjs";
 import { Synth } from "./audio.mjs";
 import { AdBridge } from "./ads.mjs";
-import { FX } from "./fx.mjs";
+import { FX, drawMenuRings, drawPlayArena, drawStars, drawVignette } from "./fx.mjs";
 import { challengeUrl, shareChallenge } from "./share.mjs";
 
 const $ = (id) => document.getElementById(id);
+
+const GRADE_COLOR = {
+  perfect: "#ffe56a",
+  great: "#39f6ff",
+  good: "#ff3df0",
+  miss: "#ff5d7a",
+};
 
 export class PulseRush {
   constructor() {
@@ -41,11 +50,12 @@ export class PulseRush {
     this.last = performance.now();
     this.dpr = 1;
     this.slowmo = 0;
-    this.stars = Array.from({ length: 60 }, () => ({
+    this.stars = Array.from({ length: 90 }, () => ({
       x: Math.random(),
       y: Math.random(),
       z: 0.2 + Math.random() * 0.8,
     }));
+    this._overAnim = 0;
     this._bind();
   }
 
@@ -54,21 +64,35 @@ export class PulseRush {
     this.paintMeta();
     this.show("menu");
     this.resize();
-    window.addEventListener("resize", () => this.resize());
+    const onResize = () => this.resize();
+    window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") this.synth.unlock();
+    });
     this.canvas.addEventListener("pointerdown", (e) => this.onPointer(e), { passive: false });
+    this.canvas.parentElement.addEventListener("pointerdown", (e) => this.onPointer(e), { passive: false });
     document.addEventListener("keydown", (e) => {
-      if (e.code === "Space" || e.code === "Enter") {
+      if (e.code !== "Space" && e.code !== "Enter") return;
+      if (this.screen === "menu") {
         e.preventDefault();
-        this.tryTap();
+        this.begin(this.playMode());
+        return;
       }
+      if (this.screen !== "play") return;
+      e.preventDefault();
+      this.tryTap();
     });
     this.loop(performance.now());
     this.ads.init();
-    if (this.challenge) this.showChallengeBanner();
+    if (this.challenge) {
+      this.showChallengeBanner();
+      document.title = `Beat ${this.challenge.name}'s ${this.challenge.score.toLocaleString("en-US")} — PulseRush`;
+    }
   }
 
   _bind() {
-    $("btn-play").onclick = () => this.begin("endless");
+    $("btn-play").onclick = () => this.begin(this.playMode());
     $("btn-daily").onclick = () => this.begin("daily");
     $("btn-how").onclick = () => this.show("how");
     $("btn-shop").onclick = () => {
@@ -121,10 +145,15 @@ export class PulseRush {
     $("tog-haptics").checked = this.state.haptics;
   }
 
+  playMode() {
+    return this.challenge?.mode || "endless";
+  }
+
   showChallengeBanner() {
     const el = $("challenge-banner");
     el.hidden = false;
     el.innerHTML = `<strong>Beat ${this.challenge.name}</strong> · ${this.challenge.score.toLocaleString("en-US")} · ${this.challenge.mode === "daily" ? "today's seed" : "endless"}`;
+    $("btn-play").textContent = `BEAT ${this.challenge.score.toLocaleString("en-US")}`;
   }
 
   paintMeta() {
@@ -132,6 +161,15 @@ export class PulseRush {
     $("meta-coins").textContent = String(this.state.coins);
     $("meta-streak").textContent = String(this.state.streak);
     $("player-chip").textContent = this.state.name;
+    const hint = $("menu-hint");
+    if (hint) {
+      hint.textContent = this.challenge
+        ? `Beat ${this.challenge.name}. Tap PLAY, then tap when the rings overlap.`
+        : this.state.runs > 0
+          ? "Tap PLAY. Same pulse. New dare."
+          : "Tap PLAY. Hit the pulse when it kisses the ring.";
+    }
+    if (!this.challenge) $("btn-play").textContent = "PLAY";
   }
 
   show(name) {
@@ -141,6 +179,7 @@ export class PulseRush {
     }
     $("hud").hidden = name !== "play";
     document.body.dataset.screen = name;
+    if (name !== "play") this.synth.stopDrone();
   }
 
   begin(mode) {
@@ -154,17 +193,20 @@ export class PulseRush {
     this.show("play");
     this.updateHud();
     this.spawnPulse();
+    this.synth.start();
+    this.synth.startDrone();
     this.buzz(12);
   }
 
   spawnPulse() {
     const { w, h, min } = this.size();
     const cx = w / 2;
-    const cy = h * 0.52;
+    const cy = h * 0.48;
     const pattern = nextPattern(this.run.hitIndex, this.rng);
     const target = targetRadius(min, this.rng);
     const from = startRadius(min, pattern.expanding, target);
     const missR = pattern.expanding ? Math.min(min * 0.48, target * 1.85) : Math.max(10, target * 0.12);
+    this.synth.cancelPulseCue();
     this.pulse = {
       cx,
       cy,
@@ -175,7 +217,23 @@ export class PulseRush {
       dur: pulseDurationMs(this.run.hitIndex, this.rng),
       expanding: pattern.expanding,
       consumed: false,
+      trail: [],
+      perfStart: performance.now(),
+      ctxStart: this.synth.ctx ? this.synth.ctx.currentTime : null,
     };
+    if (this.run.hitIndex === 0) {
+      this.fx.callout("TAP THE RING", "#fff");
+      this.fx.hintLife = 2.2;
+    }
+    this.armPulseCue();
+  }
+
+  armPulseCue() {
+    const p = this.pulse;
+    if (!p || !this.synth.ctx || !this.state.sound) return;
+    const hitT = hitProgress(p.from, p.to, p.target);
+    const when = this.synth.ctx.currentTime + (hitT * p.dur) / 1000 - this.synth.latencySec();
+    this.synth.schedulePulseHit(when);
   }
 
   size() {
@@ -186,17 +244,24 @@ export class PulseRush {
 
   resize() {
     this.dpr = Math.min(2.5, window.devicePixelRatio || 1);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const host = this.canvas.parentElement;
+    const box = host.getBoundingClientRect();
+    const w = Math.max(1, Math.round(box.width));
+    const h = Math.max(1, Math.round(box.height));
     this.canvas.width = Math.floor(w * this.dpr);
     this.canvas.height = Math.floor(h * this.dpr);
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.pulse) {
+      this.pulse.cx = w / 2;
+      this.pulse.cy = h * 0.48;
+    }
   }
 
   onPointer(e) {
     if (this.screen !== "play") return;
+    if (e.target.closest?.("button, a, input, label")) return;
     e.preventDefault();
     this.tryTap();
   }
@@ -211,14 +276,15 @@ export class PulseRush {
 
   resolve(grade) {
     this.pulse.consumed = true;
+    this.synth.cancelPulseCue();
     const { w, h } = this.size();
     const skin = skinById(this.state.skin);
     const { run, gained } = applyTap(this.run, grade);
     this.run = run;
     const colors = { perfect: skin.perfect, great: skin.target, good: skin.pulse, miss: "#ff5d7a" };
-    this.fx.callout(grade.toUpperCase());
-    this.fx.burst(w / 2, h * 0.52, colors[grade], grade === "perfect" ? 36 : 18);
-    this.fx.shock(w / 2, h * 0.52, colors[grade]);
+    this.fx.callout(grade.toUpperCase(), GRADE_COLOR[grade]);
+    this.fx.burst(w / 2, h * 0.48, colors[grade], grade === "perfect" ? 42 : grade === "miss" ? 14 : 22);
+    this.fx.shock(w / 2, h * 0.48, colors[grade]);
     if (grade === "perfect") {
       this.synth.perfect();
       this.fx.punch(10, skin.perfect);
@@ -235,7 +301,7 @@ export class PulseRush {
       this.fx.punch(16, "#ff5d7a");
       this.buzz(50);
     }
-    if (run.fever && run.combo === 8) this.synth.fever();
+    if (run.fever && run.combo === FEVER_AT) this.synth.fever();
     this.updateHud(gained);
     if (run.over) {
       this.finish();
@@ -255,11 +321,27 @@ export class PulseRush {
     ).join("");
     $("hud-gain").textContent = gained ? `+${gained}` : "";
     $("hud-mode").textContent = this.run.mode === "daily" ? "DAILY" : "ENDLESS";
+    const bar = $("hud-fever");
+    if (bar) {
+      const shown = this.run.combo > 0 || this.run.fever;
+      bar.hidden = !shown;
+      const fill = bar.querySelector("i");
+      if (fill) {
+        const pct = this.run.fever ? 100 : Math.min(100, (this.run.combo / FEVER_AT) * 100);
+        fill.style.width = `${pct}%`;
+      }
+    }
   }
 
   async finish() {
     this.synth.gameOver();
     const date = utcDateString();
+    const prevBest = this.state.best || 0;
+    const isPersonalBest = this.run.score > prevBest;
+    const beaten =
+      this.challenge && this.run.score > this.challenge.score
+        ? this.challenge
+        : null;
     const { state, coins } = recordRun(this.state, {
       score: this.run.score,
       mode: this.run.mode,
@@ -267,13 +349,9 @@ export class PulseRush {
     });
     this.state = saveState(state);
     this.paintMeta();
-    $("over-score").textContent = this.run.score.toLocaleString("en-US");
+    this.animateOverScore(this.run.score);
     $("over-best").textContent = `Best ${this.state.best.toLocaleString("en-US")}`;
     $("over-coins").textContent = `+${coins} coins`;
-    const beaten =
-      this.challenge && this.run.score > this.challenge.score
-        ? this.challenge
-        : null;
     $("over-rival").hidden = !this.challenge;
     if (this.challenge) {
       $("over-rival").textContent = beaten
@@ -281,6 +359,14 @@ export class PulseRush {
         : `${this.challenge.score - this.run.score} short of ${this.challenge.name}`;
       $("over-rival").classList.toggle("win", Boolean(beaten));
     }
+    $("over-dare").textContent = beaten
+      ? "You beat them. Send it back."
+      : this.run.score <= 0
+        ? "Tap when the pulse hits the ring. Try again."
+        : isPersonalBest
+          ? "New best. Challenge a friend."
+          : "Send this. They have to beat your score.";
+    $("btn-share").textContent = beaten ? "Send it back" : "Challenge a friend";
     const canContinue = !this.run.continued;
     $("btn-continue").hidden = !canContinue;
     $("btn-continue").textContent = this.ads.native ? "Watch ad to continue" : "Continue (1 revive)";
@@ -293,6 +379,24 @@ export class PulseRush {
       this.state.gamesSinceInterstitial = 0;
       saveState(this.state);
     }
+  }
+
+  animateOverScore(score) {
+    const el = $("over-score");
+    window.cancelAnimationFrame(this._overAnim);
+    if (score <= 0) {
+      el.textContent = "0";
+      return;
+    }
+    const start = performance.now();
+    const dur = 520;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - (1 - t) * (1 - t);
+      el.textContent = Math.round(score * eased).toLocaleString("en-US");
+      if (t < 1) this._overAnim = window.requestAnimationFrame(tick);
+    };
+    this._overAnim = window.requestAnimationFrame(tick);
   }
 
   async doContinue() {
@@ -375,86 +479,48 @@ export class PulseRush {
     if (this.slowmo > 0) this.slowmo = Math.max(0, this.slowmo - raw);
     this.fx.step(dt);
     if (this.screen === "play" && this.pulse && !this.pulse.consumed && this.run && !this.run.over) {
-      this.pulse.t += dt / (this.pulse.dur / 1000);
-      if (this.pulse.t >= 1) this.resolve("miss");
+      const p = this.pulse;
+      const durSec = p.dur / 1000;
+      if (this.slowmo > 0) {
+        p.t += dt / durSec;
+      } else if (p.ctxStart != null && this.synth.ctx) {
+        p.t = (this.synth.ctx.currentTime - p.ctxStart) / durSec;
+      } else {
+        p.t = (now - p.perfStart) / p.dur;
+      }
+      const r = pulseRadius(Math.min(1, p.t), p.from, p.to);
+      p.trail = p.trail || [];
+      p.trail.push(r);
+      if (p.trail.length > 5) p.trail.shift();
+      if (p.t >= 1) this.resolve("miss");
     }
-    this.draw();
+    this.draw(dt);
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  draw() {
+  draw(dt) {
     const ctx = this.ctx;
     const { w, h } = this.size();
     const skin = skinById(this.state.skin);
     ctx.clearRect(0, 0, w, h);
-    const bg = ctx.createRadialGradient(w * 0.5, h * 0.4, 20, w * 0.5, h * 0.45, Math.max(w, h) * 0.8);
-    bg.addColorStop(0, this.run?.fever ? "#14201c" : "#0b1020");
+    const bg = ctx.createRadialGradient(w * 0.5, h * 0.4, 16, w * 0.5, h * 0.46, Math.max(w, h) * 0.85);
+    bg.addColorStop(0, this.run?.fever && this.screen === "play" ? "#1a2a20" : "#10182c");
+    bg.addColorStop(0.55, "#0a1020");
     bg.addColorStop(1, "#05060a");
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
 
-    for (const s of this.stars) {
-      s.y += 0.0004 * s.z;
-      if (s.y > 1) s.y = 0;
-      ctx.globalAlpha = 0.25 + s.z * 0.5;
-      ctx.fillStyle = "#c9e8ff";
-      ctx.fillRect(s.x * w, s.y * h, s.z * 1.8, s.z * 1.8);
-    }
-    ctx.globalAlpha = 1;
+    drawStars(ctx, this.stars, w, h, dt);
 
     if (this.screen === "play" && this.pulse) {
       const p = this.pulse;
-      const r = pulseRadius(Math.min(1, p.t), p.from, p.to);
-      ctx.save();
-      ctx.translate(p.cx, p.cy);
-      ctx.strokeStyle = skin.target;
-      ctx.shadowColor = skin.glow;
-      ctx.shadowBlur = this.run.fever ? 28 : 16;
-      ctx.lineWidth = 6;
-      ctx.globalAlpha = 0.95;
-      ctx.beginPath();
-      ctx.arc(0, 0, p.target, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(255,229,106,0.22)";
-      ctx.lineWidth = 14;
-      ctx.shadowBlur = 0;
-      ctx.beginPath();
-      ctx.arc(0, 0, p.target, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = this.run.fever ? skin.perfect : skin.pulse;
-      ctx.shadowColor = skin.pulse;
-      ctx.shadowBlur = 24;
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(0, 0, Math.max(2, r), 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.fillStyle = skin.perfect;
-      ctx.shadowBlur = 18;
-      ctx.beginPath();
-      ctx.arc(0, 0, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    } else {
-      ctx.save();
-      ctx.translate(w / 2, h * 0.4);
-      const t = performance.now() / 1000;
-      ctx.strokeStyle = skin.target;
-      ctx.shadowColor = skin.glow;
-      ctx.shadowBlur = 22;
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 86 + Math.sin(t * 2) * 6, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = skin.pulse;
-      ctx.beginPath();
-      ctx.arc(0, 0, 130 + Math.cos(t * 1.6) * 8, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+      const radius = pulseRadius(Math.min(1, p.t), p.from, p.to);
+      drawPlayArena(ctx, { ...p, radius }, skin, this.run.fever, performance.now());
+    } else if (this.screen === "menu" || this.screen === "over") {
+      drawMenuRings(ctx, w, h, skin, performance.now());
     }
 
+    drawVignette(ctx, w, h);
     this.fx.draw(ctx, w, h);
   }
 }

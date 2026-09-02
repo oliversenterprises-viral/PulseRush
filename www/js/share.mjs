@@ -36,36 +36,48 @@ export function drawShareCard(canvas, { score, name, best, streak, beaten, skin 
   ctx.fillRect(0, 0, w, h);
 
   ctx.save();
-  ctx.globalAlpha = 0.55;
-  const rg = ctx.createRadialGradient(w * 0.5, h * 0.38, 40, w * 0.5, h * 0.38, 520);
+  ctx.globalAlpha = 0.7;
+  const rg = ctx.createRadialGradient(w * 0.5, h * 0.38, 40, w * 0.5, h * 0.38, 560);
   rg.addColorStop(0, skin?.glow || "#39f6ff");
+  rg.addColorStop(0.45, "rgba(255,61,240,0.25)");
   rg.addColorStop(1, "transparent");
   ctx.fillStyle = rg;
   ctx.beginPath();
-  ctx.arc(w * 0.5, h * 0.38, 520, 0, Math.PI * 2);
+  ctx.arc(w * 0.5, h * 0.38, 560, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
+  ctx.save();
+  ctx.translate(w * 0.5, h * 0.38);
   ctx.strokeStyle = skin?.target || "#39f6ff";
+  ctx.shadowColor = skin?.glow || "#39f6ff";
+  ctx.shadowBlur = 24;
   ctx.lineWidth = 18;
+  ctx.setLineDash([36, 22]);
   ctx.beginPath();
-  ctx.arc(w * 0.5, h * 0.38, 210, 0, Math.PI * 2);
+  ctx.arc(0, 0, 210, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.setLineDash([48, 20]);
   ctx.strokeStyle = skin?.pulse || "#ff3df0";
   ctx.lineWidth = 10;
   ctx.beginPath();
-  ctx.arc(w * 0.5, h * 0.38, 300, 0, Math.PI * 2);
+  ctx.arc(0, 0, 300, 0, Math.PI * 2);
   ctx.stroke();
-
+  ctx.setLineDash([]);
   ctx.fillStyle = "#ffe56a";
+  ctx.shadowColor = "#ffe56a";
   ctx.beginPath();
-  ctx.arc(w * 0.5, h * 0.38, 28, 0, Math.PI * 2);
+  ctx.arc(0, 0, 28, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 
-  ctx.fillStyle = "#9aa4c7";
-  ctx.font = "700 42px Trebuchet MS, sans-serif";
+  ctx.fillStyle = "#39f6ff";
+  ctx.font = "800 36px Orbitron, Trebuchet MS, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("PULSERUSH", w / 2, 120);
+  ctx.fillStyle = "#9aa4c7";
+  ctx.font = "700 28px Rajdhani, Trebuchet MS, sans-serif";
+  ctx.fillText("TAP THE PULSE", w / 2, 168);
 
   ctx.fillStyle = "#f4f7ff";
   ctx.font = "800 96px Trebuchet MS, sans-serif";
