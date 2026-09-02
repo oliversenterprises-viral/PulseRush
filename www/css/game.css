@@ -304,10 +304,11 @@ html, body {
 .hud-left, .hud-right { min-width: 88px; }
 .hud-right { text-align: right; }
 #hud-score {
-  font-family: var(--display);
-  font-size: 36px;
-  font-weight: 900;
+  font-family: var(--font);
+  font-size: 40px;
+  font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1;
   text-shadow: 0 0 16px rgba(244, 247, 255, 0.28);
 }
 #hud-combo {
@@ -370,12 +371,13 @@ html, body {
   font-size: 12px;
 }
 #over-score {
-  font-family: var(--display);
-  font-size: clamp(56px, 16vw, 84px);
-  font-weight: 900;
+  font-family: var(--font);
+  font-size: clamp(64px, 18vw, 92px);
+  font-weight: 700;
   line-height: 1;
   color: var(--gold);
   text-shadow: 0 0 22px rgba(255, 229, 106, 0.55);
+  min-height: 1em;
 }
 #over-best, #over-coins { color: var(--dim); font-weight: 700; }
 #over-rival { color: var(--dim); }
@@ -496,8 +498,8 @@ html, body {
   .wordmark { display: block; }
   #void .floor { display: block; }
   #cabinet {
-    width: min(460px, 48vw);
-    height: min(880px, calc(100dvh - 40px));
+    width: min(500px, 42vw);
+    height: min(900px, calc(100dvh - 36px));
     border-radius: 32px;
     box-shadow:
       0 0 0 1px rgba(57, 246, 255, 0.55),

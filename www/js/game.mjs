@@ -533,7 +533,7 @@ export class PulseRush {
       const p = this.pulse;
       const radius = pulseRadius(Math.min(1, p.t), p.from, p.to);
       drawPlayArena(ctx, { ...p, radius }, skin, this.run.fever, performance.now());
-    } else if (this.screen === "menu" || this.screen === "over") {
+    } else if (this.screen === "menu") {
       drawMenuRings(ctx, w, h, skin, performance.now());
     }
 
@@ -548,24 +548,6 @@ export class PulseRush {
     const h = this.backdrop.height / this.dpr;
     ctx.clearRect(0, 0, w, h);
     drawStars(ctx, this.worldStars, w, h, dt);
-    if (w < 760) return;
-    const t = performance.now() / 1000;
-    const skin = skinById(this.state.skin);
-    ctx.save();
-    ctx.globalAlpha = 0.18;
-    ctx.translate(w * 0.5, h * 0.46);
-    ctx.strokeStyle = skin.target;
-    ctx.shadowColor = skin.glow;
-    ctx.shadowBlur = 28;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.min(w, h) * 0.42 + Math.sin(t * 0.7) * 10, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = skin.pulse;
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.min(w, h) * 0.56 + Math.cos(t * 0.5) * 12, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
   }
 }
 
