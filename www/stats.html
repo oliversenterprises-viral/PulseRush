@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>PulseRush — Who is playing</title>
+  <style>
+    :root {
+      --bg: #05060a;
+      --ink: #f4f7ff;
+      --dim: #9aa4c7;
+      --cyan: #39f6ff;
+      --mag: #ff3df0;
+      --gold: #ffe56a;
+      --card: rgba(12, 16, 32, 0.86);
+      --line: rgba(57, 246, 255, 0.22);
+      --font: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: radial-gradient(1200px 600px at 50% -10%, #14203a 0%, var(--bg) 55%);
+      color: var(--ink);
+      font-family: var(--font);
+      padding: 28px 18px 48px;
+    }
+    h1 {
+      letter-spacing: 0.08em;
+      font-size: clamp(22px, 4vw, 34px);
+      background: linear-gradient(90deg, var(--cyan), #fff, var(--mag));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .sub { color: var(--dim); margin: 8px 0 22px; font-size: 14px; }
+    .live {
+      display: inline-block;
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 999px;
+      padding: 8px 14px;
+      margin-bottom: 18px;
+      color: var(--gold);
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 16px 0 28px;
+    }
+    article {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    article b {
+      display: block;
+      font-size: 28px;
+      color: var(--cyan);
+      margin-bottom: 6px;
+    }
+    article span { color: var(--dim); font-size: 13px; }
+    h2 { font-size: 16px; letter-spacing: 0.12em; color: var(--dim); margin-bottom: 10px; }
+    ul { list-style: none; }
+    li {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+    .err { color: #ff5d7a; margin: 12px 0; }
+    .note { color: var(--dim); margin-top: 22px; font-size: 13px; line-height: 1.5; }
+    code { color: var(--gold); }
+  </style>
+</head>
+<body>
+  <h1>Who is playing</h1>
+  <p class="sub">Others only. Your owner devices are excluded.</p>
+  <p class="live">Playing now: <strong id="playingNow">—</strong></p>
+  <div class="cards">
+    <article><b id="uniqueOthers24h">—</b><span>Unique others (24h)</span></article>
+    <article><b id="otherRuns24h">—</b><span>Other runs (24h)</span></article>
+    <article><b id="otherShares24h">—</b><span>Other shares (24h)</span></article>
+    <article><b id="uniqueOthers7d">—</b><span>Unique others (7d)</span></article>
+  </div>
+  <h2>RECENT OTHERS</h2>
+  <p id="status" class="err" hidden></p>
+  <ul id="recentOthers"></ul>
+  <p class="note">Open <code>/?owner=1</code> on your own devices so they are marked and excluded from these counts. This page reads <code>/api/stats?k=</code> from the query string.</p>
+  <script>
+    const key = new URLSearchParams(location.search).get("k") || "";
+    const status = document.getElementById("status");
+    const ids = ["playingNow", "uniqueOthers24h", "otherRuns24h", "otherShares24h", "uniqueOthers7d"];
+
+    function ago(t) {
+      const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+      if (s < 60) return s + "s ago";
+      if (s < 3600) return Math.floor(s / 60) + "m ago";
+      if (s < 86400) return Math.floor(s / 3600) + "h ago";
+      return Math.floor(s / 86400) + "d ago";
+    }
+
+    async function load() {
+      if (!key) {
+        status.hidden = false;
+        status.textContent = "Add ?k= to the URL.";
+        return;
+      }
+      try {
+        const res = await fetch("/api/stats?k=" + encodeURIComponent(key), { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          status.hidden = false;
+          status.textContent = res.status === 401 ? "Bad key." : "Could not load stats.";
+          return;
+        }
+        status.hidden = true;
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (el) el.textContent = String(data[id] ?? 0);
+        }
+        const box = document.getElementById("recentOthers");
+        box.innerHTML = "";
+        const rows = Array.isArray(data.recentOthers) ? data.recentOthers : [];
+        if (!rows.length) {
+          const li = document.createElement("li");
+          li.innerHTML = "<span>No other activity yet</span><span></span>";
+          box.appendChild(li);
+          return;
+        }
+        for (const row of rows) {
+          const li = document.createElement("li");
+          const left = document.createElement("span");
+          const score = row.score ? " · " + Number(row.score).toLocaleString("en-US") : "";
+          const mode = row.mode ? " · " + row.mode : "";
+          left.textContent = (row.type || "event") + score + mode;
+          const right = document.createElement("span");
+          right.textContent = row.t ? ago(row.t) : "";
+          li.append(left, right);
+          box.appendChild(li);
+        }
+      } catch {
+        status.hidden = false;
+        status.textContent = "Could not load stats.";
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

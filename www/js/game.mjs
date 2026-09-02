@@ -24,6 +24,7 @@ import { Synth } from "./audio.mjs";
 import { AdBridge } from "./ads.mjs";
 import { FX, drawMenuRings, drawPlayArena, drawStars, drawVignette } from "./fx.mjs";
 import { challengeUrl, shareChallenge } from "./share.mjs";
+import { markOwnerFromUrl, sendPulse } from "./pulse.mjs";
 
 const $ = (id) => document.getElementById(id);
 
@@ -67,6 +68,8 @@ export class PulseRush {
   }
 
   async start() {
+    markOwnerFromUrl();
+    sendPulse("heart");
     this.state = saveState(touchStreak(this.state));
     this.paintMeta();
     this.show("menu");
@@ -75,7 +78,10 @@ export class PulseRush {
     window.addEventListener("resize", onResize);
     window.visualViewport?.addEventListener("resize", onResize);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") this.synth.unlock();
+      if (document.visibilityState === "visible") {
+        this.synth.unlock();
+        sendPulse("heart");
+      }
     });
     this.canvas.addEventListener("pointerdown", (e) => this.onPointer(e), { passive: false });
     this.canvas.parentElement.addEventListener("pointerdown", (e) => this.onPointer(e), { passive: false });
@@ -203,6 +209,7 @@ export class PulseRush {
     this.synth.start();
     this.synth.startDrone();
     this.buzz(12);
+    sendPulse("play", { mode });
   }
 
   spawnPulse() {
@@ -351,6 +358,7 @@ export class PulseRush {
 
   async finish() {
     this.synth.gameOver();
+    sendPulse("over", { score: this.run.score, mode: this.run.mode });
     const date = utcDateString();
     const prevBest = this.state.best || 0;
     const isPersonalBest = this.run.score > prevBest;
@@ -432,6 +440,7 @@ export class PulseRush {
   async doShare(extra = {}) {
     const beaten = extra.beaten || (this.challenge && this.run?.score > this.challenge.score ? this.challenge : null);
     const score = this.run?.score || this.state.best;
+    sendPulse("share", { score, mode: this.run?.mode || "endless" });
     const result = await shareChallenge({
       score,
       name: this.state.name,
